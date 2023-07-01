@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
+use bevy_rapier2d::prelude::*;
 
 use crate::wave::{DelayedWave, Wave, WaveBundle, WaveKind};
 
 const PLAYER_SPEED: f32 = 200.0;
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 pub struct Plugin;
 
@@ -21,16 +22,19 @@ impl Plugin {
                 ..default()
             },
             Player,
+            Collider::cuboid(20.0, 20.0),
+            Sensor,
+            RigidBody::KinematicVelocityBased,
+            Velocity::default(),
         ));
     }
 
     fn player_movement(
-        mut q_player: Query<&mut Transform, With<Player>>,
+        mut q_player: Query<&mut Velocity, With<Player>>,
         keys: Res<Input<KeyCode>>,
-        time: Res<Time>,
         mut input_direction: Local<Vec2>,
     ) {
-        let Ok(mut player) = q_player.get_single_mut() else { return };
+        let Ok(mut player_vel) = q_player.get_single_mut() else { return };
 
         // let mut input_direction = Vec2::ZERO;
         if keys.just_pressed(KeyCode::A) || keys.just_pressed(KeyCode::Left) {
@@ -75,8 +79,7 @@ impl Plugin {
             }
         }
 
-        player.translation +=
-            input_direction.normalize_or_zero().extend(0.0) * PLAYER_SPEED * time.delta_seconds();
+        player_vel.linvel = input_direction.normalize_or_zero() * PLAYER_SPEED;
     }
     fn spawn_wave(
         mut cmd: Commands,
@@ -92,6 +95,7 @@ impl Plugin {
                         kind: WaveKind::Positive,
                         radius: 0.0,
                         speed: 100.0,
+                        max_radius: 400.0,
                     },
                     shape_bundle: ShapeBundle {
                         path: GeometryBuilder::build_as(&shapes::Circle {
@@ -109,6 +113,7 @@ impl Plugin {
                 Wave {
                     kind: WaveKind::Negative,
                     radius: 0.0,
+                    max_radius: 400.0,
                     speed: 100.0,
                 },
                 player.compute_transform(),
