@@ -89,7 +89,7 @@ impl Plugin {
             cmd.spawn((
                 WaveBundle {
                     wave: Wave {
-                        kind: WaveKind::Constructive,
+                        kind: WaveKind::Positive,
                         radius: 0.0,
                         speed: 100.0,
                     },
@@ -107,7 +107,7 @@ impl Plugin {
             ));
             cmd.spawn(DelayedWave::new(
                 Wave {
-                    kind: WaveKind::Destructive,
+                    kind: WaveKind::Negative,
                     radius: 0.0,
                     speed: 100.0,
                 },
