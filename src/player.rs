@@ -6,6 +6,7 @@ use crate::{
     health::{Health, HealthBar},
     utils::{Lifespan, MousePosition, PlaySound},
     wave::{DelayedWave, Wave, WaveBundle, WaveKind},
+    GameState,
 };
 
 const PLAYER_SPEED: f32 = 200.0;
@@ -25,6 +26,7 @@ pub struct WaveIndicator;
 #[derive(Component)]
 pub struct EmitterIndicator;
 
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Plugin;
 
 impl Plugin {
@@ -88,7 +90,7 @@ impl Plugin {
                     path: path.build(),
                     ..default()
                 },
-                Stroke::new(Color::PURPLE, 3.0),
+                Stroke::new(Color::hex("bc53ff").unwrap(), 3.0),
                 WaveIndicator,
             ));
 
@@ -107,7 +109,7 @@ impl Plugin {
                     path: path.build(),
                     ..default()
                 },
-                Stroke::new(Color::PURPLE, 5.0),
+                Stroke::new(Color::hex("bc53ff").unwrap(), 5.0),
                 EmitterIndicator,
             ));
         });
@@ -121,6 +123,14 @@ impl Plugin {
         time: Res<Time>,
     ) {
         let Ok(mut player_vel) = q_player.get_single_mut() else { return };
+
+        if !keys.pressed(KeyCode::A) && !keys.pressed(KeyCode::D) {
+            input_direction.x = 0.0;
+        }
+        if !keys.pressed(KeyCode::W) && !keys.pressed(KeyCode::S) {
+            input_direction.y = 0.0;
+        }
+        
 
         // let mut input_direction = Vec2::ZERO;
         if keys.just_pressed(KeyCode::A) || keys.just_pressed(KeyCode::Left) {
@@ -260,7 +270,7 @@ impl Plugin {
             cmd.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::PURPLE,
+                        color: Color::hex("bc53ff").unwrap(),
                         custom_size: Some(Vec2::splat(10.0)),
                         ..default()
                     },
@@ -324,17 +334,26 @@ impl Plugin {
         }
         *path = path_builder.build();
     }
+
+    fn end_game(mut next_state: ResMut<NextState<GameState>>, q_player: Query<(), With<Player>>) {
+        if q_player.iter().size_hint().0 == 0 {
+            next_state.set(GameState::MainMenu);
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::spawn_player)
+        app.add_system(Self::spawn_player.in_schedule(OnEnter(GameState::InGame)))
             .insert_resource(AvgPlayerVel(Vec2::ZERO))
-            .add_system(Self::player_movement)
-            .add_system(Self::spawn_wave)
-            .add_system(Self::spawn_emitter)
-            .add_system(Self::update_cooldowns)
-            .add_system(Self::update_wave_indicator)
-            .add_system(Self::update_emitter_indicator);
+            .add_system(Self::player_movement.in_set(Self))
+            .add_system(Self::spawn_wave.in_set(Self))
+            .add_system(Self::spawn_emitter.in_set(Self))
+            .add_system(Self::update_cooldowns.in_set(Self))
+            .add_system(Self::update_wave_indicator.in_set(Self))
+            .add_system(Self::update_emitter_indicator.in_set(Self))
+            .add_system(Self::end_game.in_set(Self));
+
+        app.configure_set(Self.run_if(in_state(GameState::InGame)));
     }
 }

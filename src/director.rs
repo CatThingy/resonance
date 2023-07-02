@@ -7,7 +7,7 @@ use crate::{
     enemy::{Enemy, EnemyHitbox, Hitstun, ShootingEnemy},
     health::{Health, HealthBar, HealthChangeEvent},
     player::Player,
-    MainCamera,
+    GameState, MainCamera, wave::{WaveInterference, Wave},
 };
 
 #[derive(Resource)]
@@ -35,6 +35,7 @@ const RANGER_COST: u32 = 5;
 const RANGER_DELAY: f32 = 2.0;
 const RANGER_REQUIRED_BUDGET: u32 = 10;
 
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Plugin;
 
 impl Plugin {
@@ -143,6 +144,24 @@ impl Plugin {
             }
         }
     }
+
+    fn reset(
+        mut cmd: Commands,
+        q_cleanup: Query<Entity, Or<(With<Wave>, With<EnemyHitbox>, With<WaveInterference>)>>,
+        mut budget: ResMut<Budget>,
+        mut round_delay: ResMut<RoundDelay>,
+        mut spawn_status: ResMut<SpawnStatus>,
+    ) {
+        budget.0 = 5;
+        round_delay.0.reset();
+        spawn_status.budget = 5;
+        spawn_status.spawn_timer.reset();
+        spawn_status.enabled = false;
+
+        for entity in &q_cleanup {
+            cmd.entity(entity).despawn_recursive();
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
@@ -154,8 +173,10 @@ impl bevy::app::Plugin for Plugin {
                 spawn_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
                 enabled: false,
             })
-            .add_system(Self::tick_round_delay)
-            .add_system(Self::spawn_enemy);
+            .add_system(Self::tick_round_delay.in_set(Self))
+            .add_system(Self::spawn_enemy.in_set(Self))
+            .add_system(Self::reset.in_schedule(OnExit(GameState::InGame)));
+        app.configure_set(Self.run_if(in_state(GameState::InGame)));
     }
 }
 

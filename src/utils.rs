@@ -1,7 +1,7 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
-use crate::MainCamera;
+use crate::{GameState, MainCamera};
 
 #[derive(Resource)]
 pub struct MousePosition(pub Vec3);
@@ -57,10 +57,7 @@ impl Plugin {
     }
 
     fn music(audio: Res<Audio>, assets: Res<AssetServer>) {
-        audio.play_with_settings(
-            assets.load("interfere.ogg"),
-            PlaybackSettings::LOOP,
-        );
+        audio.play_with_settings(assets.load("interfere.ogg"), PlaybackSettings::LOOP);
     }
 
     fn play_sound(audio: Res<Audio>, assets: Res<AssetServer>, mut events: EventReader<PlaySound>) {
@@ -68,7 +65,7 @@ impl Plugin {
             audio.play(assets.load(sound));
         }
     }
-    fn pause_on_lost_focus(mut time: ResMut<Time>, q_window: Query<&Window,With<PrimaryWindow>>) {
+    fn pause_on_lost_focus(mut time: ResMut<Time>, q_window: Query<&Window, With<PrimaryWindow>>) {
         if q_window.single().focused {
             time.unpause();
         } else {
@@ -76,17 +73,18 @@ impl Plugin {
         }
     }
 
-    fn preload(mut preloaded: Local<Vec<HandleUntyped>>,assets: Res<AssetServer>){
+    fn preload(mut preloaded: Local<Vec<HandleUntyped>>, assets: Res<AssetServer>) {
         *preloaded = vec![
-        assets.load_untyped("ding.ogg"),
-        assets.load_untyped("dong.ogg"),
-        assets.load_untyped("interfere.ogg"),
-        assets.load_untyped("layer.png"),
-        assets.load_untyped("layer_shot.png"),
-        assets.load_untyped("shooter.png"),
-        assets.load_untyped("shooter_shot.png"),
+            assets.load_untyped("ding.ogg"),
+            assets.load_untyped("dong.ogg"),
+            assets.load_untyped("interfere.ogg"),
+            assets.load_untyped("layer.png"),
+            assets.load_untyped("layer_shot.png"),
+            assets.load_untyped("shooter.png"),
+            assets.load_untyped("shooter_shot.png"),
+            assets.load_untyped("title.png"),
+            assets.load_untyped("play.png"),
         ];
-
     }
 }
 
@@ -98,8 +96,8 @@ impl bevy::app::Plugin for Plugin {
             .add_event::<PlaySound>()
             .add_system(Self::play_sound)
             .add_system(Self::pause_on_lost_focus)
-            .add_system(Self::update_mouse_position)
-            .add_system(Self::update_lifespan)
-            .add_system(Self::velocity_abuse);
+            .add_system(Self::update_mouse_position.run_if(in_state(GameState::InGame)))
+            .add_system(Self::update_lifespan.run_if(in_state(GameState::InGame)))
+            .add_system(Self::velocity_abuse.run_if(in_state(GameState::InGame)));
     }
 }

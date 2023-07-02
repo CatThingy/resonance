@@ -6,7 +6,7 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     health::HealthChangeEvent,
     player::{AvgPlayerVel, Player},
-    utils::Lifespan,
+    utils::Lifespan, GameState,
 };
 
 #[derive(Component)]
@@ -52,6 +52,7 @@ impl Hitstun {
     }
 }
 
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Plugin;
 
 impl Plugin {
@@ -179,8 +180,9 @@ impl Plugin {
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_system(Self::enemy_movement)
-            .add_system(Self::enemy_shoot)
-            .add_system(Self::enemy_damage);
+        app.add_system(Self::enemy_movement.in_set(Self))
+            .add_system(Self::enemy_shoot.in_set(Self))
+            .add_system(Self::enemy_damage.in_set(Self));
+        app.configure_set(Self.run_if(in_state(GameState::InGame)));
     }
 }

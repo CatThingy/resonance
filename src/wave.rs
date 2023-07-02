@@ -6,6 +6,7 @@ use crate::{
     enemy::{Enemy, EnemyHitbox, Hitstun},
     health::HealthChangeEvent,
     utils::{Lifespan, PlaySound},
+    GameState,
 };
 
 #[derive(Clone, Copy)]
@@ -78,6 +79,7 @@ impl DelayedWave {
     }
 }
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Plugin;
 
 impl Plugin {
@@ -437,14 +439,31 @@ impl Plugin {
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_event::<WaveInterferenceEvent>()
-            .add_system(Self::update_wave)
-            .add_system(Self::update_delayed_wave)
-            .add_system(Self::detect_interference)
-            .add_system(Self::interfere.after(Self::detect_interference))
-            .add_system(Self::destructive_interference)
-            .add_system(Self::positive_interference.after(Self::destructive_interference))
-            .add_system(Self::negative_interference.after(Self::destructive_interference))
-            .add_system(Self::enemy_interaction.after(Self::destructive_interference))
-            .add_system(Self::cleanup_no_effect);
+            .add_system(Self::update_wave.in_set(Self))
+            .add_system(Self::update_delayed_wave.in_set(Self))
+            .add_system(Self::detect_interference.in_set(Self))
+            .add_system(
+                Self::interfere
+                    .after(Self::detect_interference)
+                    .in_set(Self),
+            )
+            .add_system(Self::destructive_interference.in_set(Self))
+            .add_system(
+                Self::positive_interference
+                    .after(Self::destructive_interference)
+                    .in_set(Self),
+            )
+            .add_system(
+                Self::negative_interference
+                    .after(Self::destructive_interference)
+                    .in_set(Self),
+            )
+            .add_system(
+                Self::enemy_interaction
+                    .after(Self::destructive_interference)
+                    .in_set(Self),
+            )
+            .add_system(Self::cleanup_no_effect.in_set(Plugin));
+        app.configure_set(Self.run_if(in_state(GameState::InGame)));
     }
 }
