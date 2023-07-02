@@ -21,6 +21,21 @@ pub struct HealthChangeEvent {
     pub amount: f32,
 }
 
+#[derive(Component)]
+pub struct HealthBar {
+    width: f32,
+    fraction: f32,
+}
+
+impl HealthBar {
+    pub fn new(width: f32) -> Self {
+        HealthBar {
+            width,
+            fraction: 1.0,
+        }
+    }
+}
+
 pub struct Plugin;
 
 impl Plugin {
@@ -41,11 +56,29 @@ impl Plugin {
             }
         }
     }
+
+    fn update_healthbar(
+        q_health: Query<(&Health, &Children)>,
+        mut q_healthbar: Query<(&mut HealthBar, &mut Sprite, &mut Transform)>,
+    ) {
+        for (health, children) in &q_health {
+            for child in children.iter() {
+                if let Ok((mut bar, mut sprite, mut transform)) = q_healthbar.get_mut(*child) {
+                    bar.fraction = health.percentage();
+                    sprite.custom_size = sprite
+                        .custom_size
+                        .map(|v| Vec2::new(bar.width * bar.fraction, v.y));
+                    transform.translation.x = bar.width * (bar.fraction - 1.0) / 2.0;
+                }
+            }
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HealthChangeEvent>()
-        .add_system(Self::update_health);
+            .add_system(Self::update_health)
+            .add_system(Self::update_healthbar);
     }
 }

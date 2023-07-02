@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
-use enemy::{Enemy, Hitstun};
-use health::Health;
+use enemy::{Enemy, Hitstun, ShootingEnemy};
+use health::{Health, HealthBar};
 
 mod enemy;
 mod health;
@@ -43,6 +43,7 @@ fn debug_spawn_enemy(
     mut cmd: Commands,
     keyboard: Res<Input<KeyCode>>,
     mouse: Res<utils::MousePosition>,
+    assets: Res<AssetServer>,
 ) {
     if keyboard.just_pressed(KeyCode::E) {
         cmd.spawn((
@@ -61,8 +62,82 @@ fn debug_spawn_enemy(
             Hitstun::new(0.0),
             Sensor,
             RigidBody::KinematicVelocityBased,
-            Velocity::default()
+            Velocity::default(),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::DARK_GREEN,
+                        custom_size: Some(Vec2::new(40.0, 5.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0.0, 30.0, 0.1),
+                    ..default()
+                },
+                HealthBar::new(40.0),
+            ));
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::RED,
+                    custom_size: Some(Vec2::new(40.0, 5.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 30.0, 0.0),
+                ..default()
+            });
+        });
+    }
 
-        ));
+    if keyboard.just_pressed(KeyCode::R) {
+        cmd.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::GREEN,
+                    custom_size: Some(Vec2::splat(40.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(mouse.0),
+                ..default()
+            },
+            Enemy { speed: 30.0 },
+            ShootingEnemy {
+                timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+                speed: 500.0,
+                lifespan: 5.0,
+                damage: 20.0,
+                size: 8.0,
+                texture: assets.load("shooter_shot.png"),
+            },
+            Collider::cuboid(20.0, 20.0),
+            Health::new(30.0),
+            Hitstun::new(0.0),
+            Sensor,
+            RigidBody::KinematicVelocityBased,
+            Velocity::default(),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::DARK_GREEN,
+                        custom_size: Some(Vec2::new(40.0, 5.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0.0, 30.0, 0.1),
+                    ..default()
+                },
+                HealthBar::new(40.0),
+            ));
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::RED,
+                    custom_size: Some(Vec2::new(40.0, 5.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 30.0, 0.0),
+                ..default()
+            });
+        });
     }
 }

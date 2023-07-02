@@ -3,7 +3,7 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    enemy::{Enemy, Hitstun},
+    enemy::{Enemy, Hitstun, EnemyHitbox},
     health::HealthChangeEvent,
     utils::Lifespan,
 };
@@ -94,7 +94,7 @@ impl Plugin {
                 center: Vec2::ZERO,
             });
 
-            stroke.options.line_width = 30.0 * (wave.radius / wave.max_radius).powi(2);
+            stroke.options.line_width = 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2);
             stroke
                 .color
                 .set_a(1.0 - (wave.radius / wave.max_radius).powi(2));
@@ -211,15 +211,21 @@ impl Plugin {
         }
     }
 
-    fn interfere(mut cmd: Commands, mut ev_inteference: EventReader<WaveInterferenceEvent>) {
+    fn interfere(mut cmd: Commands, assets: Res<AssetServer>, mut ev_inteference: EventReader<WaveInterferenceEvent>) {
         for interference in &mut ev_inteference {
             cmd.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        custom_size: Some(Vec2::splat(5.0)),
+                        custom_size: Some(2.0 * Vec2::splat(2.0 + 15.0 * (1.0 - interference.strength))),
+                        color: match interference.kind {
+                            InterferenceKind::Destructive => Color::GRAY,
+                            InterferenceKind::Positive => Color::RED,
+                            InterferenceKind::Negative => Color::BLUE,
+                        },
                         ..default()
                     },
-                    transform: Transform::from_translation(interference.position.extend(0.1)),
+                    texture: assets.load("glow.png"),
+                    transform: Transform::from_translation((interference.position + interference.direction * 2.0).extend(0.01)),
                     ..default()
                 },
                 WaveInterference {
@@ -227,8 +233,8 @@ impl Plugin {
                     direction: interference.direction,
                     strength: interference.strength,
                 },
-                Lifespan::new(0.1),
-                Collider::ball(30.0 * (1.0 - interference.strength)),
+                Lifespan::new(0.05),
+                Collider::ball(2.0 + 15.0 * (1.0 - interference.strength)),
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::KINEMATIC_STATIC,
@@ -286,6 +292,44 @@ impl Plugin {
             }
         }
     }
+
+    fn handle_negative_interference(
+        mut cmd: Commands,
+        q_interference: Query<&WaveInterference>,
+        q_enemy_projectile: Query<(), (With<EnemyHitbox>, Without<Enemy>)>,
+        mut ev_collisions: EventReader<CollisionEvent>,
+    ) {
+        for collision in &mut ev_collisions {
+            let proj_entity;
+            let interference;
+            match collision {
+                CollisionEvent::Started(e1, e2, _) => {
+                    if let Ok(_) = q_enemy_projectile.get(*e1) {
+                        if let Ok(i) = q_interference.get(*e2) {
+                            proj_entity = e1;
+                            interference = i;
+                        } else {
+                            continue;
+                        }
+                    } else if let Ok(_) = q_enemy_projectile.get(*e2) {
+                        if let Ok(i) = q_interference.get(*e1) {
+                            proj_entity = e2;
+                            interference = i;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                _ => continue,
+            }
+
+            if interference.kind == InterferenceKind::Negative {
+                cmd.entity(*proj_entity).despawn_recursive();
+            }
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
@@ -295,6 +339,7 @@ impl bevy::app::Plugin for Plugin {
             .add_system(Self::update_delayed_wave)
             .add_system(Self::detect_interference)
             .add_system(Self::interfere.after(Self::detect_interference))
-            .add_system(Self::handle_positive_interference);
+            .add_system(Self::handle_positive_interference)
+            .add_system(Self::handle_negative_interference);
     }
 }

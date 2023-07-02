@@ -2,9 +2,15 @@ use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::wave::{DelayedWave, Wave, WaveBundle, WaveKind};
+use crate::{
+    health::{Health, HealthBar},
+    wave::{DelayedWave, Wave, WaveBundle, WaveKind},
+};
 
 const PLAYER_SPEED: f32 = 200.0;
+
+#[derive(Resource)]
+pub struct AvgPlayerVel(pub Vec2);
 
 #[derive(Component)]
 pub struct Player;
@@ -26,13 +32,39 @@ impl Plugin {
             Sensor,
             RigidBody::KinematicVelocityBased,
             Velocity::default(),
-        ));
+            Health::new(100.0),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::DARK_GREEN,
+                        custom_size: Some(Vec2::new(40.0, 5.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0.0, 30.0, 0.1),
+                    ..default()
+                },
+                HealthBar::new(40.0),
+            ));
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::RED,
+                    custom_size: Some(Vec2::new(40.0, 5.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 30.0, 0.0),
+                ..default()
+            });
+        });
     }
 
     fn player_movement(
         mut q_player: Query<&mut Velocity, With<Player>>,
         keys: Res<Input<KeyCode>>,
         mut input_direction: Local<Vec2>,
+        mut avg_vel: ResMut<AvgPlayerVel>,
+        time: Res<Time>,
     ) {
         let Ok(mut player_vel) = q_player.get_single_mut() else { return };
 
@@ -80,13 +112,21 @@ impl Plugin {
         }
 
         player_vel.linvel = input_direction.normalize_or_zero() * PLAYER_SPEED;
+
+        let alpha = 0.5 * time.delta_seconds();
+
+        let prev = avg_vel.0;
+        avg_vel.0 += alpha * (player_vel.linvel - prev);
     }
+
     fn spawn_wave(
         mut cmd: Commands,
         q_player: Query<&GlobalTransform, With<Player>>,
         mouse_buttons: Res<Input<MouseButton>>,
     ) {
         let Ok(player) = q_player.get_single() else { return };
+
+        let wave_transform = player.compute_transform();
 
         if mouse_buttons.just_pressed(MouseButton::Left) {
             cmd.spawn((
@@ -102,7 +142,7 @@ impl Plugin {
                             radius: 0.0,
                             center: Vec2::ZERO,
                         }),
-                        transform: player.compute_transform(),
+                        transform: wave_transform,
 
                         ..default()
                     },
@@ -116,7 +156,7 @@ impl Plugin {
                     max_radius: 400.0,
                     speed: 100.0,
                 },
-                player.compute_transform(),
+                wave_transform,
                 0.5,
             ));
         }
@@ -126,6 +166,7 @@ impl Plugin {
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(Self::spawn_player)
+            .insert_resource(AvgPlayerVel(Vec2::ZERO))
             .add_system(Self::player_movement)
             .add_system(Self::spawn_wave);
     }
