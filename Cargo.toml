@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.10.1", default-features = false, features  = ["png", "vorbis", "bevy_ui", "wayland", "x11", "bevy_text"]}
-bevy-inspector-egui = "0.18.3"
 bevy_prototype_lyon = "0.8.0"
 bevy_rapier2d = "0.21.0"
 fastrand = "2.0.0"

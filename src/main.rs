@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
@@ -29,8 +28,15 @@ fn main() {
     })
     .insert_resource(ClearColor(Color::hex("0a0a0a").unwrap()))
     .add_state::<GameState>()
-    .add_plugins(DefaultPlugins)
-    .add_plugin(WorldInspectorPlugin::default())
+    .add_plugins(DefaultPlugins.set(WindowPlugin{
+        primary_window: Some(Window {
+                title: "Resonance".to_owned(),
+                canvas: Some("#bevy".to_owned()),
+                ..default()
+
+            }),
+            ..default()
+    }))
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
     .add_plugin(ShapePlugin)
     .add_plugin(director::Plugin)
