@@ -3,7 +3,11 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::{health::HealthChangeEvent, player::{Player, AvgPlayerVel}, utils::Lifespan};
+use crate::{
+    health::HealthChangeEvent,
+    player::{AvgPlayerVel, Player},
+    utils::Lifespan,
+};
 
 #[derive(Component)]
 pub struct Enemy {
@@ -25,9 +29,12 @@ pub struct ShootingEnemy {
 
 #[derive(Component)]
 pub struct EnemyHitbox {
-    damage: f32,
-    once: bool,
+    pub damage: f32,
+    pub once: bool,
 }
+
+#[derive(Component)]
+pub struct RecentDamage(pub f32);
 
 impl Hitstun {
     pub fn new(mut time: f32) -> Self {
@@ -76,7 +83,7 @@ impl Plugin {
         q_player: Query<&GlobalTransform, With<Player>>,
         mut q_shooter: Query<(&GlobalTransform, &mut ShootingEnemy, &Hitstun), With<Enemy>>,
         time: Res<Time>,
-        player_vel: Res<AvgPlayerVel>
+        player_vel: Res<AvgPlayerVel>,
     ) {
         let Ok(player_transform) = q_player.get_single() else { return };
         let player_pos = player_transform.translation().truncate();
@@ -91,12 +98,11 @@ impl Plugin {
             if shooter.timer.finished() {
                 shooter.timer.reset();
 
-
                 let player_dist = transform.translation().truncate().distance(player_pos);
                 let travel_time = player_dist / shooter.speed;
                 let target_pos = player_pos + player_vel.0 * travel_time;
-                let target_dir = (target_pos - transform.translation().truncate()).normalize_or_zero();
-
+                let target_dir =
+                    (target_pos - transform.translation().truncate()).normalize_or_zero();
 
                 cmd.spawn((
                     SpriteBundle {
@@ -171,12 +177,31 @@ impl Plugin {
             }
         }
     }
+
+    fn accumulate_recent_damage(
+        mut ev_health: EventReader<HealthChangeEvent>,
+        mut q_enemy: Query<&mut RecentDamage, With<Enemy>>,
+        time: Res<Time>,
+    ) {
+        for health_change in &mut ev_health {
+            let Ok(mut recent_damage) = q_enemy.get_mut(health_change.target) else { continue };
+
+            if health_change.amount < 0.0 {
+                recent_damage.0 += -health_change.amount;
+            }
+        }
+
+        for mut recent_damage in &mut q_enemy {
+            recent_damage.0 *= 1.0 - (10.0 * time.delta_seconds());
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_system(Self::enemy_movement)
             .add_system(Self::enemy_shoot)
-            .add_system(Self::enemy_damage);
+            .add_system(Self::enemy_damage)
+            .add_system(Self::accumulate_recent_damage);
     }
 }

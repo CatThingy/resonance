@@ -29,8 +29,9 @@ impl Plugin {
             },
             Player,
             Collider::cuboid(20.0, 20.0),
-            Sensor,
-            RigidBody::KinematicVelocityBased,
+            ActiveEvents::COLLISION_EVENTS,
+            LockedAxes::ROTATION_LOCKED,
+            RigidBody::Dynamic,
             Velocity::default(),
             Health::new(100.0),
         ))
@@ -124,9 +125,9 @@ impl Plugin {
         q_player: Query<&GlobalTransform, With<Player>>,
         mouse_buttons: Res<Input<MouseButton>>,
     ) {
-        let Ok(player) = q_player.get_single() else { return };
+        let Ok(player_transform) = q_player.get_single() else { return };
 
-        let wave_transform = player.compute_transform();
+        let wave_transform = player_transform.compute_transform();
 
         if mouse_buttons.just_pressed(MouseButton::Left) {
             cmd.spawn((

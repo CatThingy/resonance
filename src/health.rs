@@ -78,7 +78,7 @@ impl Plugin {
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HealthChangeEvent>()
-            .add_system(Self::update_health)
+            .add_system(Self::update_health.in_base_set(CoreSet::PostUpdate))
             .add_system(Self::update_healthbar);
     }
 }

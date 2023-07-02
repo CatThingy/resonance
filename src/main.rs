@@ -5,6 +5,7 @@ use bevy_rapier2d::prelude::*;
 use enemy::{Enemy, Hitstun, ShootingEnemy};
 use health::{Health, HealthBar};
 
+mod director;
 mod enemy;
 mod health;
 mod player;
@@ -19,6 +20,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(ShapePlugin)
+        .add_plugin(director::Plugin)
         .add_plugin(enemy::Plugin)
         .add_plugin(health::Plugin)
         .add_plugin(player::Plugin)

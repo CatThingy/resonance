@@ -3,8 +3,9 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    enemy::{Enemy, Hitstun, EnemyHitbox},
+    enemy::{Enemy, EnemyHitbox, Hitstun, RecentDamage},
     health::HealthChangeEvent,
+    player::Player,
     utils::Lifespan,
 };
 
@@ -34,6 +35,9 @@ pub struct WaveInterferenceEvent {
     direction: Vec2,
     strength: f32,
 }
+
+#[derive(Component)]
+pub struct NoEffect;
 
 impl WaveKind {
     fn color(&self) -> Color {
@@ -211,12 +215,23 @@ impl Plugin {
         }
     }
 
-    fn interfere(mut cmd: Commands, assets: Res<AssetServer>, mut ev_inteference: EventReader<WaveInterferenceEvent>) {
+    fn interfere(
+        mut cmd: Commands,
+        assets: Res<AssetServer>,
+        mut ev_inteference: EventReader<WaveInterferenceEvent>,
+    ) {
         for interference in &mut ev_inteference {
+            let interference_size = match interference.kind {
+                InterferenceKind::Destructive => 30.0,
+                InterferenceKind::Positive => 15.0,
+                InterferenceKind::Negative => 25.0,
+            };
             cmd.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        custom_size: Some(2.0 * Vec2::splat(2.0 + 15.0 * (1.0 - interference.strength))),
+                        custom_size: Some(
+                            2.0 * Vec2::splat(2.0 + 15.0 * (1.0 - interference.strength)),
+                        ),
                         color: match interference.kind {
                             InterferenceKind::Destructive => Color::GRAY,
                             InterferenceKind::Positive => Color::RED,
@@ -225,7 +240,9 @@ impl Plugin {
                         ..default()
                     },
                     texture: assets.load("glow.png"),
-                    transform: Transform::from_translation((interference.position + interference.direction * 2.0).extend(0.01)),
+                    transform: Transform::from_translation(
+                        (interference.position + interference.direction * 2.0).extend(0.01),
+                    ),
                     ..default()
                 },
                 WaveInterference {
@@ -234,17 +251,59 @@ impl Plugin {
                     strength: interference.strength,
                 },
                 Lifespan::new(0.05),
-                Collider::ball(2.0 + 15.0 * (1.0 - interference.strength)),
+                Collider::ball(2.0 + interference_size * (1.0 - interference.strength)),
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
-                ActiveCollisionTypes::KINEMATIC_STATIC,
             ));
+        }
+    }
+
+    fn handle_enemy_interaction(
+        q_wave: Query<(&Wave, &GlobalTransform)>,
+        q_player: Query<Entity, With<Player>>,
+        mut q_enemy: Query<
+            (Entity, &GlobalTransform, &mut RecentDamage),
+            (With<Enemy>, Without<NoEffect>),
+        >,
+        mut ev_health: EventWriter<HealthChangeEvent>,
+        time: Res<Time>,
+    ) {
+        let Ok(player) = q_player.get_single() else { return };
+        for (wave, wave_transform) in &q_wave {
+            let wave_origin = wave_transform.translation().truncate();
+            match wave.kind {
+                WaveKind::Positive => {
+                    for (enemy_entity, enemy_transform, _) in &q_enemy {
+                        let enemy_pos = enemy_transform.translation().truncate();
+                        let offset = f32::abs(enemy_pos.distance(wave_origin) - wave.radius);
+                        if offset < 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2) {
+                            ev_health.send(HealthChangeEvent {
+                                target: enemy_entity,
+                                amount: -10.0 * time.delta_seconds(),
+                            });
+                        }
+                    }
+                }
+                WaveKind::Negative => {
+                    for (_, enemy_transform, mut recent_damage) in &mut q_enemy {
+                        let enemy_pos = enemy_transform.translation().truncate();
+                        let offset = f32::abs(enemy_pos.distance(wave_origin) - wave.radius);
+                        if offset < 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2) {
+                            ev_health.send(HealthChangeEvent {
+                                target: player,
+                                amount: recent_damage.0,
+                            });
+                            recent_damage.0 = 0.0;
+                        }
+                    }
+                }
+            }
         }
     }
 
     fn handle_positive_interference(
         q_interference: Query<&WaveInterference>,
-        mut q_enemy: Query<(&mut Hitstun, &mut Velocity), With<Enemy>>,
+        mut q_enemy: Query<(&mut Hitstun, &mut Velocity), (With<Enemy>, Without<NoEffect>)>,
         mut ev_collisions: EventReader<CollisionEvent>,
         mut ev_health: EventWriter<HealthChangeEvent>,
     ) {
@@ -296,7 +355,7 @@ impl Plugin {
     fn handle_negative_interference(
         mut cmd: Commands,
         q_interference: Query<&WaveInterference>,
-        q_enemy_projectile: Query<(), (With<EnemyHitbox>, Without<Enemy>)>,
+        q_enemy_projectile: Query<(), (With<EnemyHitbox>, Without<Enemy>, Without<NoEffect>)>,
         mut ev_collisions: EventReader<CollisionEvent>,
     ) {
         for collision in &mut ev_collisions {
@@ -330,6 +389,59 @@ impl Plugin {
             }
         }
     }
+
+    fn handle_destructive_interference(
+        mut cmd: Commands,
+        q_interference: Query<&WaveInterference>,
+        q_enemy: Query<Entity, With<Enemy>>,
+        mut ev_collisions: EventReader<CollisionEvent>,
+    ) {
+        for collision in &mut ev_collisions {
+            let add;
+            let target;
+            let interference;
+            let entity1;
+            let entity2;
+            match collision {
+                CollisionEvent::Started(e1, e2, _) => {
+                    add = true;
+                    entity1 = e1;
+                    entity2 = e2;
+                }
+                CollisionEvent::Stopped(e1, e2, _) => {
+                    add = false;
+                    entity1 = e1;
+                    entity2 = e2;
+                }
+            }
+
+            if let Ok(_) = q_enemy.get(*entity1) {
+                if let Ok(i) = q_interference.get(*entity2) {
+                    target = entity1;
+                    interference = i;
+                } else {
+                    continue;
+                }
+            } else if let Ok(_) = q_enemy.get(*entity2) {
+                if let Ok(i) = q_interference.get(*entity1) {
+                    target = entity2;
+                    interference = i;
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
+            if interference.kind == InterferenceKind::Destructive {
+                if add {
+                    cmd.entity(*target).insert(NoEffect);
+                } else {
+                    cmd.entity(*target).remove::<NoEffect>();
+                }
+            }
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
@@ -340,6 +452,8 @@ impl bevy::app::Plugin for Plugin {
             .add_system(Self::detect_interference)
             .add_system(Self::interfere.after(Self::detect_interference))
             .add_system(Self::handle_positive_interference)
-            .add_system(Self::handle_negative_interference);
+            .add_system(Self::handle_negative_interference)
+            .add_system(Self::handle_destructive_interference)
+            .add_system(Self::handle_enemy_interaction);
     }
 }
