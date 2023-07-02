@@ -336,7 +336,7 @@ impl Plugin {
 
     fn end_game(mut next_state: ResMut<NextState<GameState>>, q_player: Query<(), With<Player>>) {
         if q_player.iter().size_hint().0 == 0 {
-            next_state.set(GameState::MainMenu);
+            next_state.set(GameState::GameOver);
         }
     }
 }

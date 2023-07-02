@@ -12,6 +12,9 @@ use crate::{
 };
 
 #[derive(Resource)]
+pub struct Rounds(pub u32);
+
+#[derive(Resource)]
 pub struct Budget(u32);
 
 #[derive(Resource)]
@@ -23,6 +26,12 @@ pub struct SpawnStatus {
     spawn_timer: Timer,
     enabled: bool,
 }
+
+#[derive(Component)]
+pub struct Root;
+
+#[derive(Component)]
+pub struct RoundCounter;
 
 const NORMIE_COST: u32 = 1;
 const NORMIE_DELAY: f32 = 1.0;
@@ -40,12 +49,47 @@ const RANGER_REQUIRED_BUDGET: u32 = 10;
 pub struct Plugin;
 
 impl Plugin {
+    fn init_ui(mut cmd: Commands, assets: Res<AssetServer>) {
+        cmd.spawn(NodeBundle {
+            style: Style {
+                size: Size {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                },
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            background_color: Color::NONE.into(),
+            ..default()
+        })
+        .insert(Root)
+        .with_children(|root| {
+            root.spawn((
+                TextBundle {
+                    text: Text::from_section(
+                        "Round 0",
+                        TextStyle {
+                            font: assets.load("FiraSans-Light.ttf"),
+                            font_size: 72.0,
+                            color: Color::hex("bc53ff").unwrap(),
+                        },
+                    ),
+                    ..default()
+                },
+                RoundCounter,
+            ));
+        });
+    }
+
     fn tick_round_delay(
         q_player: Query<Entity, With<Player>>,
         mut ev_health: EventWriter<HealthChangeEvent>,
         q_enemy: Query<(), With<Enemy>>,
         budget: Res<Budget>,
         mut round_delay: ResMut<RoundDelay>,
+        mut rounds: ResMut<Rounds>,
         mut spawn_status: ResMut<SpawnStatus>,
         time: Res<Time>,
     ) {
@@ -58,8 +102,20 @@ impl Plugin {
                 });
             }
             if round_delay.0.just_finished() {
+                rounds.0 += 1;
                 spawn_status.enabled = true;
                 spawn_status.budget = budget.0;
+            }
+        }
+    }
+
+    fn update_round_counter(
+        rounds: Res<Rounds>,
+        mut counter: Query<&mut Text, With<RoundCounter>>,
+    ) {
+        if rounds.is_changed() {
+            for mut counter in &mut counter {
+                counter.sections[0].value = format!("Round {}", rounds.0);
             }
         }
     }
@@ -148,7 +204,15 @@ impl Plugin {
 
     fn reset(
         mut cmd: Commands,
-        q_cleanup: Query<Entity, Or<(With<Wave>, With<EnemyHitbox>, With<WaveInterference>)>>,
+        q_cleanup: Query<
+            Entity,
+            Or<(
+                With<Wave>,
+                With<EnemyHitbox>,
+                With<WaveInterference>,
+                With<Root>,
+            )>,
+        >,
         mut budget: ResMut<Budget>,
         mut round_delay: ResMut<RoundDelay>,
         mut spawn_status: ResMut<SpawnStatus>,
@@ -168,6 +232,7 @@ impl Plugin {
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Budget(5))
+            .insert_resource(Rounds(0))
             .insert_resource(RoundDelay(Timer::from_seconds(3.0, TimerMode::Repeating)))
             .insert_resource(SpawnStatus {
                 budget: 5,
@@ -175,7 +240,9 @@ impl bevy::app::Plugin for Plugin {
                 enabled: false,
             })
             .add_system(Self::tick_round_delay.in_set(Self))
+            .add_system(Self::update_round_counter.in_set(Self))
             .add_system(Self::spawn_enemy.in_set(Self))
+            .add_system(Self::init_ui.in_schedule(OnEnter(GameState::InGame)))
             .add_system(Self::reset.in_schedule(OnExit(GameState::InGame)));
         app.configure_set(Self.run_if(in_state(GameState::InGame)));
     }

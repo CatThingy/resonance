@@ -6,6 +6,7 @@ use bevy_rapier2d::prelude::*;
 mod director;
 mod enemy;
 mod health;
+mod game_over;
 mod main_menu;
 mod player;
 mod utils;
@@ -16,6 +17,7 @@ pub enum GameState {
     #[default]
     MainMenu,
     InGame,
+    GameOver,
 }
 
 fn main() {
@@ -25,6 +27,7 @@ fn main() {
         gravity: Vec2::ZERO,
         ..default()
     })
+    .insert_resource(ClearColor(Color::hex("0a0a0a").unwrap()))
     .add_state::<GameState>()
     .add_plugins(DefaultPlugins)
     .add_plugin(WorldInspectorPlugin::default())
@@ -33,6 +36,7 @@ fn main() {
     .add_plugin(director::Plugin)
     .add_plugin(enemy::Plugin)
     .add_plugin(main_menu::Plugin)
+    .add_plugin(game_over::Plugin)
     .add_plugin(health::Plugin)
     .add_plugin(player::Plugin)
     .add_plugin(utils::Plugin)

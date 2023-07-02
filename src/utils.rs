@@ -84,6 +84,9 @@ impl Plugin {
             assets.load_untyped("shooter_shot.png"),
             assets.load_untyped("title.png"),
             assets.load_untyped("play.png"),
+            assets.load_untyped("FiraSans-Light.ttf"),
+            assets.load_untyped("menu.png"),
+
         ];
     }
 }
