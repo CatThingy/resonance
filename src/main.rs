@@ -16,7 +16,6 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::default())
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(ShapePlugin)
         .add_plugin(director::Plugin)
         .add_plugin(enemy::Plugin)

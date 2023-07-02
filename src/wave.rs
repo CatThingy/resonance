@@ -216,7 +216,6 @@ impl Plugin {
 
     fn interfere(
         mut cmd: Commands,
-        assets: Res<AssetServer>,
         mut ev_inteference: EventReader<WaveInterferenceEvent>,
     ) {
         for interference in &mut ev_inteference {
@@ -226,19 +225,7 @@ impl Plugin {
                 InterferenceKind::Negative => 25.0,
             };
             cmd.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(
-                            2.0 * Vec2::splat(2.0 + 15.0 * (1.0 - interference.strength)),
-                        ),
-                        color: match interference.kind {
-                            InterferenceKind::Destructive => Color::GRAY,
-                            InterferenceKind::Positive => Color::RED,
-                            InterferenceKind::Negative => Color::BLUE,
-                        },
-                        ..default()
-                    },
-                    texture: assets.load("glow.png"),
+                SpatialBundle {
                     transform: Transform::from_translation(
                         (interference.position + interference.direction * 2.0).extend(0.01),
                     ),
@@ -257,7 +244,7 @@ impl Plugin {
         }
     }
 
-    fn handle_enemy_interaction(
+    fn enemy_interaction(
         q_wave: Query<(&Wave, &GlobalTransform)>,
         q_player: Query<Entity, With<Player>>,
         mut q_enemy: Query<
@@ -300,7 +287,7 @@ impl Plugin {
         }
     }
 
-    fn handle_positive_interference(
+    fn positive_interference(
         q_interference: Query<&WaveInterference>,
         mut q_enemy: Query<(&mut Hitstun, &mut Velocity), (With<Enemy>, Without<NoEffect>)>,
         mut ev_collisions: EventReader<CollisionEvent>,
@@ -342,16 +329,17 @@ impl Plugin {
                 if !enemy_hitstun.is_set() {
                     ev_health.send(HealthChangeEvent {
                         target: *enemy_entity,
-                        amount: -10.0 * interference.strength,
+                        amount: -10.0 * (0.5 + interference.strength / 2.0),
                     });
                 }
                 enemy_hitstun.set(0.25);
-                enemy_velocity.linvel = interference.direction * 50.0 * interference.strength;
+                enemy_velocity.linvel =
+                    interference.direction * 50.0 * (0.5 + interference.strength / 2.0);
             }
         }
     }
 
-    fn handle_negative_interference(
+    fn negative_interference(
         mut cmd: Commands,
         q_interference: Query<&WaveInterference>,
         q_enemy_projectile: Query<(), (With<EnemyHitbox>, Without<Enemy>, Without<NoEffect>)>,
@@ -389,7 +377,7 @@ impl Plugin {
         }
     }
 
-    fn handle_destructive_interference(
+    fn destructive_interference(
         mut cmd: Commands,
         q_interference: Query<&WaveInterference>,
         q_enemy: Query<Entity, With<Enemy>>,
@@ -441,6 +429,12 @@ impl Plugin {
             }
         }
     }
+
+    fn cleanup_no_effect(mut cmd: Commands, q_affected: Query<Entity, With<NoEffect>>) {
+        for affected in &q_affected {
+            cmd.entity(affected).remove::<NoEffect>();
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
@@ -450,9 +444,10 @@ impl bevy::app::Plugin for Plugin {
             .add_system(Self::update_delayed_wave)
             .add_system(Self::detect_interference)
             .add_system(Self::interfere.after(Self::detect_interference))
-            .add_system(Self::handle_positive_interference)
-            .add_system(Self::handle_negative_interference)
-            .add_system(Self::handle_destructive_interference)
-            .add_system(Self::handle_enemy_interaction);
+            .add_system(Self::destructive_interference)
+            .add_system(Self::positive_interference.after(Self::destructive_interference))
+            .add_system(Self::negative_interference.after(Self::destructive_interference))
+            .add_system(Self::enemy_interaction.after(Self::destructive_interference))
+            .add_system(Self::cleanup_no_effect);
     }
 }

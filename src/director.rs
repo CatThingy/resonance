@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    enemy::{Enemy, Hitstun, ShootingEnemy, RecentDamage, EnemyHitbox},
+    enemy::{Enemy, EnemyHitbox, Hitstun, RecentDamage, ShootingEnemy},
     health::{Health, HealthBar},
     MainCamera,
 };
@@ -26,9 +26,14 @@ const NORMIE_COST: u32 = 1;
 const NORMIE_DELAY: f32 = 1.0;
 const NORMIE_REQUIRED_BUDGET: u32 = 0;
 
+const LAYER_COST: u32 = 2;
+const LAYER_DELAY: f32 = 2.0;
+const LAYER_REQUIRED_BUDGET: u32 = 6;
+
 const RANGER_COST: u32 = 5;
 const RANGER_DELAY: f32 = 2.0;
 const RANGER_REQUIRED_BUDGET: u32 = 10;
+
 
 pub struct Plugin;
 
@@ -88,6 +93,10 @@ impl Plugin {
                     generated += 1;
                 }
 
+                if budget.0 > LAYER_REQUIRED_BUDGET && spawn_status.budget >= LAYER_COST {
+                    generated += 1;
+                }
+
                 if budget.0 > RANGER_REQUIRED_BUDGET && spawn_status.budget >= RANGER_COST {
                     generated += 1;
                 }
@@ -102,7 +111,14 @@ impl Plugin {
                             .spawn_timer
                             .set_duration(Duration::from_secs_f32(NORMIE_DELAY));
                     }
-                    1 => {
+                    1=> {
+                        spawn_layer(&mut cmd, perim_point.extend(0.0), &assets);
+                        spawn_status.budget -= LAYER_COST;
+                        spawn_status
+                            .spawn_timer
+                            .set_duration(Duration::from_secs_f32(LAYER_DELAY));
+                    }
+                    2 => {
                         spawn_ranger(&mut cmd, perim_point.extend(0.0), &assets);
                         spawn_status.budget -= RANGER_COST;
                         spawn_status
@@ -146,7 +162,7 @@ fn spawn_normie(cmd: &mut Commands, pos: Vec3) {
             transform: Transform::from_translation(pos),
             ..default()
         },
-        Enemy { speed: 60.0 },
+        Enemy { speed: 80.0 },
         Collider::cuboid(20.0, 20.0),
         RecentDamage(0.0),
         Health::new(30.0),
@@ -157,7 +173,64 @@ fn spawn_normie(cmd: &mut Commands, pos: Vec3) {
         EnemyHitbox {
             damage: 10.0,
             once: false,
-        }
+        },
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::DARK_GREEN,
+                    custom_size: Some(Vec2::new(40.0, 5.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 30.0, 0.1),
+                ..default()
+            },
+            HealthBar::new(40.0),
+        ));
+        parent.spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::RED,
+                custom_size: Some(Vec2::new(40.0, 5.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, 30.0, 0.05),
+            ..default()
+        });
+    });
+}
+
+fn spawn_ranger(cmd: &mut Commands, pos: Vec3, assets: &AssetServer) {
+    cmd.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::AZURE,
+                custom_size: Some(Vec2::splat(40.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(pos),
+            texture: assets.load("shooter.png"),
+            ..default()
+        },
+        Enemy { speed: 30.0 },
+        ShootingEnemy {
+            timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+            speed: 400.0,
+            lifespan: 5.0,
+            damage: 7.0,
+            size: 8.0,
+            texture: assets.load("shooter_shot.png"),
+        },
+        RecentDamage(0.0),
+        Collider::cuboid(20.0, 20.0),
+        Health::new(10.0),
+        Hitstun::new(0.0),
+        RigidBody::KinematicVelocityBased,
+        Velocity::default(),
+        EnemyHitbox {
+            damage: 0.1,
+            once: false,
+        },
     ))
     .with_children(|parent| {
         parent.spawn((
@@ -184,36 +257,37 @@ fn spawn_normie(cmd: &mut Commands, pos: Vec3) {
     });
 }
 
-fn spawn_ranger(cmd: &mut Commands, pos: Vec3, assets: &AssetServer) {
+fn spawn_layer(cmd: &mut Commands, pos: Vec3, assets: &AssetServer) {
     cmd.spawn((
         SpriteBundle {
             sprite: Sprite {
-                color: Color::GREEN,
+                color: Color::TEAL,
                 custom_size: Some(Vec2::splat(40.0)),
                 ..default()
             },
             transform: Transform::from_translation(pos),
+            texture: assets.load("layer.png"),
             ..default()
         },
-        Enemy { speed: 30.0 },
+        Enemy { speed: 40.0 },
         ShootingEnemy {
-            timer: Timer::from_seconds(1.0, TimerMode::Repeating),
-            speed: 400.0,
-            lifespan: 5.0,
-            damage: 7.0,
+            timer: Timer::from_seconds(2.0, TimerMode::Repeating),
+            speed: 4.0,
+            lifespan: 60.0,
+            damage: 10.0,
             size: 8.0,
-            texture: assets.load("shooter_shot.png"),
+            texture: assets.load("layer_shot.png"),
         },
         RecentDamage(0.0),
         Collider::cuboid(20.0, 20.0),
-        Health::new(30.0),
+        Health::new(20.0),
         Hitstun::new(0.0),
         RigidBody::KinematicVelocityBased,
         Velocity::default(),
         EnemyHitbox {
             damage: 0.1,
             once: false,
-        }
+        },
     ))
     .with_children(|parent| {
         parent.spawn((

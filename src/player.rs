@@ -19,6 +19,12 @@ pub struct Player {
     emitter_cooldown: Timer,
 }
 
+#[derive(Component)]
+pub struct WaveIndicator;
+
+#[derive(Component)]
+pub struct EmitterIndicator;
+
 pub struct Plugin;
 
 impl Plugin {
@@ -61,9 +67,49 @@ impl Plugin {
                     custom_size: Some(Vec2::new(40.0, 5.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 30.0, 0.0),
+                transform: Transform::from_xyz(0.0, 30.0, 0.05),
                 ..default()
             });
+
+            let fract = std::f32::consts::TAU / 32.0;
+
+            let mut path = PathBuilder::new();
+            path.move_to(Vec2::X * 15.0);
+
+            for i in 1..=32 {
+                path.line_to(Vec2::new(
+                    f32::cos(i as f32 * fract) * 15.0,
+                    f32::sin(i as f32 * fract) * 15.0,
+                ));
+            }
+
+            parent.spawn((
+                ShapeBundle {
+                    path: path.build(),
+                    ..default()
+                },
+                Stroke::new(Color::PURPLE, 3.0),
+                WaveIndicator,
+            ));
+
+            let mut path = PathBuilder::new();
+            path.move_to(Vec2::X * 40.0);
+
+            for i in 1..=32 {
+                path.line_to(Vec2::new(
+                    f32::cos(i as f32 * fract) * 40.0,
+                    f32::sin(i as f32 * fract) * 40.0,
+                ));
+            }
+
+            parent.spawn((
+                ShapeBundle {
+                    path: path.build(),
+                    ..default()
+                },
+                Stroke::new(Color::PURPLE, 5.0),
+                EmitterIndicator,
+            ));
         });
     }
 
@@ -139,7 +185,7 @@ impl Plugin {
 
         let wave_transform = player_transform.compute_transform();
 
-        if mouse_buttons.just_pressed(MouseButton::Left) {
+        if mouse_buttons.pressed(MouseButton::Left) {
             player.wave_cooldown.reset();
             cmd.spawn((
                 WaveBundle {
@@ -184,7 +230,7 @@ impl Plugin {
             return;
         }
         let player_pos = player_transform.translation();
-        if mouse_buttons.just_pressed(MouseButton::Right) {
+        if mouse_buttons.pressed(MouseButton::Right) {
             player.emitter_cooldown.reset();
             cmd.spawn(DelayedWave::new(
                 Wave {
@@ -233,6 +279,48 @@ impl Plugin {
         player.emitter_cooldown.tick(time.delta());
         player.wave_cooldown.tick(time.delta());
     }
+
+    fn update_wave_indicator(
+        q_player: Query<&Player>,
+        mut q_indicator: Query<&mut Path, With<WaveIndicator>>,
+    ) {
+        let Ok(player) = q_player.get_single() else { return };
+        let Ok(mut path) = q_indicator.get_single_mut() else { return };
+
+        let mut path_builder = PathBuilder::new();
+        path_builder.move_to(Vec2::Y * 15.0);
+
+        let fract = -(std::f32::consts::TAU / 32.0) * player.wave_cooldown.percent();
+
+        for i in 1..=32 {
+            path_builder.line_to(Vec2::new(
+                f32::cos(i as f32 * fract + std::f32::consts::FRAC_PI_2) * 15.0,
+                f32::sin(i as f32 * fract + std::f32::consts::FRAC_PI_2) * 15.0,
+            ));
+        }
+        *path = path_builder.build();
+    }
+
+    fn update_emitter_indicator(
+        q_player: Query<&Player>,
+        mut q_indicator: Query<&mut Path, With<EmitterIndicator>>,
+    ) {
+        let Ok(player) = q_player.get_single() else { return };
+        let Ok(mut path) = q_indicator.get_single_mut() else { return };
+
+        let mut path_builder = PathBuilder::new();
+        path_builder.move_to(Vec2::Y * 30.0);
+
+        let fract = -(std::f32::consts::TAU / 32.0) * player.emitter_cooldown.percent();
+
+        for i in 1..=32 {
+            path_builder.line_to(Vec2::new(
+                f32::cos(i as f32 * fract + std::f32::consts::FRAC_PI_2) * 30.0,
+                f32::sin(i as f32 * fract + std::f32::consts::FRAC_PI_2) * 30.0,
+            ));
+        }
+        *path = path_builder.build();
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
@@ -242,6 +330,8 @@ impl bevy::app::Plugin for Plugin {
             .add_system(Self::player_movement)
             .add_system(Self::spawn_wave)
             .add_system(Self::spawn_emitter)
-            .add_system(Self::update_cooldowns);
+            .add_system(Self::update_cooldowns)
+            .add_system(Self::update_wave_indicator)
+            .add_system(Self::update_emitter_indicator);
     }
 }
