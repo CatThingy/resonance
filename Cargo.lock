@@ -2425,17 +2425,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mtgj"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bevy_prototype_lyon",
- "bevy_rapier2d",
- "fastrand 2.0.0",
-]
-
-[[package]]
 name = "naga"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3083,6 +3072,17 @@ name = "renderdoc-sys"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1382d1f0a252c4bf97dc20d979a2fdd05b024acd7c2ed0f7595d7817666a157"
+
+[[package]]
+name = "resonance"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_prototype_lyon",
+ "bevy_rapier2d",
+ "fastrand 2.0.0",
+]
 
 [[package]]
 name = "robust"
