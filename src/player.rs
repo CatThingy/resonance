@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     health::{Health, HealthBar},
-    utils::{Lifespan, MousePosition},
+    utils::{Lifespan, MousePosition, PlaySound},
     wave::{DelayedWave, Wave, WaveBundle, WaveKind},
 };
 
@@ -177,6 +177,7 @@ impl Plugin {
         mut cmd: Commands,
         mut q_player: Query<(&GlobalTransform, &mut Player)>,
         mouse_buttons: Res<Input<MouseButton>>,
+        mut ev_sound: EventWriter<PlaySound>,
     ) {
         let Ok((player_transform, mut player)) = q_player.get_single_mut () else { return };
         if !player.wave_cooldown.finished() {
@@ -216,6 +217,8 @@ impl Plugin {
                 wave_transform,
                 0.5,
             ));
+
+            ev_sound.send(PlaySound("ding.ogg".to_owned()));
         }
     }
 

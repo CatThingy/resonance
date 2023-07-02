@@ -15,6 +15,8 @@ impl Lifespan {
     }
 }
 
+pub struct PlaySound(pub String);
+
 pub struct Plugin;
 
 impl Plugin {
@@ -53,11 +55,49 @@ impl Plugin {
             transform.rotation *= Quat::from_rotation_z(time.delta_seconds() * vel.angvel);
         }
     }
+
+    fn music(audio: Res<Audio>, assets: Res<AssetServer>) {
+        audio.play_with_settings(
+            assets.load("interfere.ogg"),
+            PlaybackSettings::LOOP,
+        );
+    }
+
+    fn play_sound(audio: Res<Audio>, assets: Res<AssetServer>, mut events: EventReader<PlaySound>) {
+        for PlaySound(sound) in events.iter() {
+            audio.play(assets.load(sound));
+        }
+    }
+    fn pause_on_lost_focus(mut time: ResMut<Time>, q_window: Query<&Window,With<PrimaryWindow>>) {
+        if q_window.single().focused {
+            time.unpause();
+        } else {
+            time.pause();
+        }
+    }
+
+    fn preload(mut preloaded: Local<Vec<HandleUntyped>>,assets: Res<AssetServer>){
+        *preloaded = vec![
+        assets.load_untyped("ding.ogg"),
+        assets.load_untyped("dong.ogg"),
+        assets.load_untyped("interfere.ogg"),
+        assets.load_untyped("layer.png"),
+        assets.load_untyped("layer_shot.png"),
+        assets.load_untyped("shooter.png"),
+        assets.load_untyped("shooter_shot.png"),
+        ];
+
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MousePosition(Vec3::ZERO))
+            .add_startup_system(Self::music)
+            .add_startup_system(Self::preload)
+            .add_event::<PlaySound>()
+            .add_system(Self::play_sound)
+            .add_system(Self::pause_on_lost_focus)
             .add_system(Self::update_mouse_position)
             .add_system(Self::update_lifespan)
             .add_system(Self::velocity_abuse);

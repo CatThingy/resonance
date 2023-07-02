@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     enemy::{Enemy, EnemyHitbox, Hitstun},
     health::HealthChangeEvent,
-    utils::Lifespan,
+    utils::{Lifespan, PlaySound},
 };
 
 #[derive(Clone, Copy)]
@@ -105,6 +105,7 @@ impl Plugin {
     fn update_delayed_wave(
         mut cmd: Commands,
         mut q_delayed_wave: Query<(Entity, &mut DelayedWave)>,
+        mut ev_sound: EventWriter<PlaySound>,
         time: Res<Time>,
     ) {
         for (entity, mut delayed_wave) in &mut q_delayed_wave {
@@ -122,6 +123,10 @@ impl Plugin {
                     Stroke::new(delayed_wave.wave.kind.color(), 2.0),
                 ));
                 cmd.entity(entity).despawn_recursive();
+                match delayed_wave.wave.kind {
+                    WaveKind::Positive => ev_sound.send(PlaySound("ding.ogg".to_owned())),
+                    WaveKind::Negative => ev_sound.send(PlaySound("dong.ogg".to_owned())),
+                }
             }
         }
     }
