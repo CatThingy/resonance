@@ -33,9 +33,6 @@ pub struct EnemyHitbox {
     pub once: bool,
 }
 
-#[derive(Component)]
-pub struct RecentDamage(pub f32);
-
 impl Hitstun {
     pub fn new(mut time: f32) -> Self {
         if time <= 0.0 {
@@ -178,30 +175,12 @@ impl Plugin {
         }
     }
 
-    fn accumulate_recent_damage(
-        mut ev_health: EventReader<HealthChangeEvent>,
-        mut q_enemy: Query<&mut RecentDamage, With<Enemy>>,
-        time: Res<Time>,
-    ) {
-        for health_change in &mut ev_health {
-            let Ok(mut recent_damage) = q_enemy.get_mut(health_change.target) else { continue };
-
-            if health_change.amount < 0.0 {
-                recent_damage.0 += -health_change.amount;
-            }
-        }
-
-        for mut recent_damage in &mut q_enemy {
-            recent_damage.0 *= 1.0 - (10.0 * time.delta_seconds());
-        }
-    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_system(Self::enemy_movement)
             .add_system(Self::enemy_shoot)
-            .add_system(Self::enemy_damage)
-            .add_system(Self::accumulate_recent_damage);
+            .add_system(Self::enemy_damage);
     }
 }

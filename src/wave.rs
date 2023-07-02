@@ -3,9 +3,8 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    enemy::{Enemy, EnemyHitbox, Hitstun, RecentDamage},
+    enemy::{Enemy, EnemyHitbox, Hitstun},
     health::HealthChangeEvent,
-    player::Player,
     utils::Lifespan,
 };
 
@@ -214,10 +213,7 @@ impl Plugin {
         }
     }
 
-    fn interfere(
-        mut cmd: Commands,
-        mut ev_inteference: EventReader<WaveInterferenceEvent>,
-    ) {
+    fn interfere(mut cmd: Commands, mut ev_inteference: EventReader<WaveInterferenceEvent>) {
         for interference in &mut ev_inteference {
             let interference_size = match interference.kind {
                 InterferenceKind::Destructive => 30.0,
@@ -246,20 +242,19 @@ impl Plugin {
 
     fn enemy_interaction(
         q_wave: Query<(&Wave, &GlobalTransform)>,
-        q_player: Query<Entity, With<Player>>,
-        mut q_enemy: Query<
-            (Entity, &GlobalTransform, &mut RecentDamage),
-            (With<Enemy>, Without<NoEffect>),
+        q_enemy: Query<(Entity, &GlobalTransform), (With<Enemy>, Without<NoEffect>)>,
+        mut q_projectile: Query<
+            (&GlobalTransform, &mut Velocity),
+            (With<EnemyHitbox>, Without<Enemy>),
         >,
         mut ev_health: EventWriter<HealthChangeEvent>,
         time: Res<Time>,
     ) {
-        let Ok(player) = q_player.get_single() else { return };
         for (wave, wave_transform) in &q_wave {
             let wave_origin = wave_transform.translation().truncate();
             match wave.kind {
                 WaveKind::Positive => {
-                    for (enemy_entity, enemy_transform, _) in &q_enemy {
+                    for (enemy_entity, enemy_transform) in &q_enemy {
                         let enemy_pos = enemy_transform.translation().truncate();
                         let offset = f32::abs(enemy_pos.distance(wave_origin) - wave.radius);
                         if offset < 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2) {
@@ -271,15 +266,12 @@ impl Plugin {
                     }
                 }
                 WaveKind::Negative => {
-                    for (_, enemy_transform, mut recent_damage) in &mut q_enemy {
+                    for (enemy_transform, mut vel) in &mut q_projectile {
                         let enemy_pos = enemy_transform.translation().truncate();
                         let offset = f32::abs(enemy_pos.distance(wave_origin) - wave.radius);
                         if offset < 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2) {
-                            ev_health.send(HealthChangeEvent {
-                                target: player,
-                                amount: recent_damage.0,
-                            });
-                            recent_damage.0 = 0.0;
+                            vel.linvel +=
+                                (enemy_pos - wave_origin).normalize() * 10.0 * time.delta_seconds();
                         }
                     }
                 }

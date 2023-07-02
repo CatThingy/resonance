@@ -4,8 +4,9 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    enemy::{Enemy, EnemyHitbox, Hitstun, RecentDamage, ShootingEnemy},
-    health::{Health, HealthBar},
+    enemy::{Enemy, EnemyHitbox, Hitstun, ShootingEnemy},
+    health::{Health, HealthBar, HealthChangeEvent},
+    player::Player,
     MainCamera,
 };
 
@@ -34,11 +35,12 @@ const RANGER_COST: u32 = 5;
 const RANGER_DELAY: f32 = 2.0;
 const RANGER_REQUIRED_BUDGET: u32 = 10;
 
-
 pub struct Plugin;
 
 impl Plugin {
     fn tick_round_delay(
+        q_player: Query<Entity, With<Player>>,
+        mut ev_health: EventWriter<HealthChangeEvent>,
         q_enemy: Query<(), With<Enemy>>,
         budget: Res<Budget>,
         mut round_delay: ResMut<RoundDelay>,
@@ -47,6 +49,12 @@ impl Plugin {
     ) {
         if spawn_status.enabled == false && q_enemy.iter().size_hint().0 == 0 {
             round_delay.0.tick(time.delta());
+            if let Ok(player) = q_player.get_single() {
+                ev_health.send(HealthChangeEvent {
+                    target: player,
+                    amount: time.delta_seconds() * 15.0,
+                });
+            }
             if round_delay.0.just_finished() {
                 spawn_status.enabled = true;
                 spawn_status.budget = budget.0;
@@ -111,7 +119,7 @@ impl Plugin {
                             .spawn_timer
                             .set_duration(Duration::from_secs_f32(NORMIE_DELAY));
                     }
-                    1=> {
+                    1 => {
                         spawn_layer(&mut cmd, perim_point.extend(0.0), &assets);
                         spawn_status.budget -= LAYER_COST;
                         spawn_status
@@ -164,7 +172,6 @@ fn spawn_normie(cmd: &mut Commands, pos: Vec3) {
         },
         Enemy { speed: 80.0 },
         Collider::cuboid(20.0, 20.0),
-        RecentDamage(0.0),
         Health::new(30.0),
         Hitstun::new(0.0),
         RigidBody::Dynamic,
@@ -221,7 +228,6 @@ fn spawn_ranger(cmd: &mut Commands, pos: Vec3, assets: &AssetServer) {
             size: 8.0,
             texture: assets.load("shooter_shot.png"),
         },
-        RecentDamage(0.0),
         Collider::cuboid(20.0, 20.0),
         Health::new(10.0),
         Hitstun::new(0.0),
@@ -278,7 +284,6 @@ fn spawn_layer(cmd: &mut Commands, pos: Vec3, assets: &AssetServer) {
             size: 8.0,
             texture: assets.load("layer_shot.png"),
         },
-        RecentDamage(0.0),
         Collider::cuboid(20.0, 20.0),
         Health::new(20.0),
         Hitstun::new(0.0),
