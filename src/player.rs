@@ -130,7 +130,6 @@ impl Plugin {
         if !keys.pressed(KeyCode::W) && !keys.pressed(KeyCode::S) {
             input_direction.y = 0.0;
         }
-        
 
         // let mut input_direction = Vec2::ZERO;
         if keys.just_pressed(KeyCode::A) || keys.just_pressed(KeyCode::Left) {

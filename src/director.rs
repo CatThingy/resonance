@@ -7,7 +7,8 @@ use crate::{
     enemy::{Enemy, EnemyHitbox, Hitstun, ShootingEnemy},
     health::{Health, HealthBar, HealthChangeEvent},
     player::Player,
-    GameState, MainCamera, wave::{WaveInterference, Wave},
+    wave::{Wave, WaveInterference},
+    GameState, MainCamera,
 };
 
 #[derive(Resource)]

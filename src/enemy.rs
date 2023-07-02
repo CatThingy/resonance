@@ -6,7 +6,8 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     health::HealthChangeEvent,
     player::{AvgPlayerVel, Player},
-    utils::Lifespan, GameState,
+    utils::Lifespan,
+    GameState,
 };
 
 #[derive(Component)]
@@ -175,7 +176,6 @@ impl Plugin {
             }
         }
     }
-
 }
 
 impl bevy::app::Plugin for Plugin {

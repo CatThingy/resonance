@@ -30,10 +30,9 @@ impl Plugin {
         .with_children(|root| {
             root.spawn(ImageBundle {
                 image: UiImage {
-                        texture: assets.load("title.png"),
-                        ..default()
-
-                    },
+                    texture: assets.load("title.png"),
+                    ..default()
+                },
                 style: Style {
                     size: Size {
                         width: Val::Px(960.0),
@@ -45,10 +44,9 @@ impl Plugin {
             });
             root.spawn((
                 ButtonBundle {
-                image: UiImage {
+                    image: UiImage {
                         texture: assets.load("play.png"),
                         ..default()
-
                     },
                     style: Style {
                         size: Size {
