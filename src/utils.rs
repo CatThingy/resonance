@@ -1,4 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_rapier2d::prelude::*;
 
 use crate::MainCamera;
 
@@ -43,12 +44,22 @@ impl Plugin {
             }
         }
     }
+    fn velocity_abuse(
+        mut vel_query: Query<(&mut Transform, &Velocity), Without<RigidBody>>,
+        time: Res<Time>,
+    ) {
+        for (mut transform, vel) in &mut vel_query {
+            transform.translation += time.delta_seconds() * vel.linvel.extend(0.0);
+            transform.rotation *= Quat::from_rotation_z(time.delta_seconds() * vel.angvel);
+        }
+    }
 }
 
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MousePosition(Vec3::ZERO))
             .add_system(Self::update_mouse_position)
-            .add_system(Self::update_lifespan);
+            .add_system(Self::update_lifespan)
+            .add_system(Self::velocity_abuse);
     }
 }

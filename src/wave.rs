@@ -97,7 +97,6 @@ impl Plugin {
                 radius: wave.radius,
                 center: Vec2::ZERO,
             });
-
             stroke.options.line_width = 2.0 + 30.0 * (wave.radius / wave.max_radius).powi(2);
             stroke
                 .color
